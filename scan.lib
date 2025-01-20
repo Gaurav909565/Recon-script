@@ -1,0 +1,80 @@
+#!/bin/bash
+
+crt_scan() {
+    echo "[+] Starting crt scan on $domain..."
+    curl "https://crt.sh/?q=$domain&output=json" -s -o $directory/crt
+    echo "[+] The results for crt scan are stored in $directory/crt."
+    sleep $((RANDOM % 5 + 1))  # Random delay
+}
+
+subdomain_scan() {
+    echo "[+] Enumerating subdomains of the target..."
+    echo "[+] Subfinder scan started."
+    subfinder -d $domain -all -recursive -silent > $directory/subfinder.txt
+    sleep $((RANDOM % 5 + 1))  # Random delay
+    echo "[+] Amass scan started."
+    amass enum -passive -d $domain -o $directory/amass.txt 2>/dev/null # Reduced threads
+    echo "[+] Combining the result of subfinder and Amass."
+    cat $directory/subfinder.txt $directory/amass.txt | sort | uniq > $directory/subdomain.txt
+    mv $directory/subfinder.txt $directory/amass.txt $directory/Extra
+    echo "[+] The results for subdomain scan are stored in $directory/subdomain.txt."
+}
+
+alive_subdomain_scan() {
+    if [[ -s $directory/subdomain.txt ]]; then
+        echo "[+] Finding alive subdomains using httpx."
+        cat $directory/subdomain.txt | httpx > $directory/httpx.txt 2>/dev/null
+        cat $directory/subdomain.txt | httpx --status-code -title -content-length > $directory/httpx_detailed.txt 2>/dev/null
+        if [[ -s $directory/httpx.txt ]]; then
+            sed 's~http[s]*://~~g' $directory/httpx.txt > $directory/alive_subdomain.txt
+            mv $directory/httpx.txt $directory/subdomain.txt $directory/Extra
+            echo "[+] The results for HTTPX are stored in $directory/alive_subdomain.txt."
+        else
+            echo "[-] HTTPX did not find any alive subdomains or failed to run."
+        fi
+    else
+        echo "[-] subdomain.txt does not exist or is empty. Skipping HTTPX scan."
+    fi
+}
+
+
+directory_scan() {
+    if [[ -s $directory/alive_subdomain.txt ]]; then
+        echo "[+] Crawling all directories of $domain."
+        echo "[+] Starting katana scan."
+        katana -u $directory/alive_subdomain.txt -H "$header" -d 5 -ps -pss waybackarchive, commoncrawl, alienvault -hf -jc -fx -ef woff, css, png, svg, jpg, woff2, jpeg, gif, svg -rl 50 -silent > $directory/katana.txt 2>/dev/null
+        sleep $((RANDOM % 5 + 1))  # Random delay
+        echo "[+] Starting Waybackurls scan."
+	cat $directory/alive_subdomain.txt | waybackurls -no-subs > $directory/waybackurls.txt
+        if [[ -e "$directory/katana.txt" && -e "$directory/waybackurls.txt" ]]; then
+            echo "[+] Sorting and combining result of katana and dirsearch to $directory/allurls.txt"
+            cat $directory/katana.txt $directory/waybackurls.txt | sort | uniq > $directory/allurls.txt
+            mv $directory/katana.txt $directory/waybackurls.txt $directory/Extra
+        elif [[ -e "$directory/katana.txt" && ! -e "$directory/waybackurls.txt" ]]; then
+            echo "[-] Unable to perform Dirsearch scan."
+            echo "[+] Sorting and combining result of katana to $directory/allurls.txt"
+            cat $directory/katana.txt | sort | uniq > $directory/allurls.txt
+            mv $directory/katana.txt $directory/Extra
+        elif [[ ! -e "$directory/katana.txt" && -e "$directory/waybackurls.txt" ]]; then
+            echo "[-] Unable to perform Katana scan."
+            echo "[+] Sorting and combining result of Dirsearch to $directory/allurls.txt"
+            cat $directory/waybackurls.txt | sort | uniq > $directory/allurls.txt
+            mv $directory/waybackurls.txt $directory/Extra
+        else
+            echo "[-] katana.txt and waybackurls.txt files do not exist."
+        fi
+        echo "[+] Separating all parameters URL from $directory/allurls.txt to $directory/param.txt"
+        cat $directory/allurls.txt | grep = > $directory/param.txt
+    else
+        echo "[-] alive_subdomain.txt does not exist or is empty. Skipping directory scan."
+    fi
+}
+
+xss_scan() {
+    echo "[+] Scanning $domain for XSS Vulnerability..."
+    dalfox file $directory/param.txt -H $header --custom-payload /home/kali/xss_payload.txt > $directory/Dalfox.txt
+    echo "[+] Dalfox scan done on $directory/param.txt"
+    echo "[+] Saving the result of dalfox in $directory/xss_report.txt"
+    cat $directory/Dalfox.txt > $directory/xss_report.txt
+    mv $directory/Dalfox.txt $directory/Extra
+}
