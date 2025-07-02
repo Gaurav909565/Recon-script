@@ -29,49 +29,13 @@ install_nmap() {
     fi
 }
 
-# Function to install Gobuster
-install_gobuster() {
-    if is_installed gobuster; then
-        echo "Gobuster is already installed."
-    else
-        echo "Installing Gobuster..."
-        go install github.com/OJ/gobuster@latest
-        sudo ln -s "$HOME/go/bin/gobuster" /usr/local/bin/gobuster
-        echo "Gobuster installed successfully."
-    fi
-}
-
-# Function to install Amass
-install_amass() {
-    if is_installed amass; then
-        echo "Amass is already installed."
-    else
-        echo "Installing Amass..."
-        go install github.com/OWASP/Amass/v3@latest
-        sudo ln -s "$HOME/go/bin/amass" /usr/local/bin/amass
-        echo "Amass installed successfully."
-    fi
-}
-
-# Function to install Dirsearch
-install_dirsearch() {
-    if is_installed dirsearch; then
-        echo "Dirsearch is already installed."
-    else
-        echo "Installing Dirsearch..."
-        git clone https://github.com/maurosoria/dirsearch.git
-        sudo ln -s "$(pwd)/dirsearch/dirsearch.py" /usr/local/bin/dirsearch
-        echo "Dirsearch installed successfully."
-    fi
-}
-
 # Function to install Subfinder
 install_subfinder() {
     if is_installed subfinder; then
         echo "Subfinder is already installed."
     else
         echo "Installing Subfinder..."
-        go install github.com/projectdiscovery/subfinder/v2@latest
+        go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
         sudo ln -s "$HOME/go/bin/subfinder" /usr/local/bin/subfinder
         echo "Subfinder installed successfully."
     fi
@@ -83,61 +47,109 @@ install_httpx() {
         echo "Httpx is already installed."
     else
         echo "Installing Httpx..."
-        go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+        go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
         sudo ln -s "$HOME/go/bin/httpx" /usr/local/bin/httpx
         echo "Httpx installed successfully."
     fi
 }
 
-# Function to install Dalfox
-install_dalfox() {
-    if is_installed dalfox; then
-        echo "Dalfox is already installed."
+# Function to install Nuclei
+install_nuclei() {
+    if is_installed nuclei; then
+        echo "Nuclei is already installed."
     else
-        echo "Installing Dalfox..."
-        go install github.com/hahwul/dalfox/v2@latest
-        sudo ln -s "$HOME/go/bin/dalfox" /usr/local/bin/dalfox
-        echo "Dalfox installed successfully."
+        echo "Installing Nuclei..."
+        go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
+        sudo ln -s "$HOME/go/bin/nuclei" /usr/local/bin/nuclei
+        echo "Nuclei installed successfully."
     fi
 }
 
-# Function to install Feroxbuster
-install_feroxbuster() {
-    if is_installed feroxbuster; then
-        echo "Feroxbuster is already installed."
+# Function to install Assetfinder
+install_assetfinder() {
+    if is_installed assetfinder; then
+        echo "Assetfinder is already installed."
     else
-        echo "Installing Feroxbuster..."
-        sudo apt update
-        sudo apt install -y feroxbuster
-        echo "Feroxbuster installed successfully."
+        echo "Installing Assetfinder..."
+        go install github.com/tomnomnom/assetfinder@latest
+        sudo ln -s "$HOME/go/bin/assetfinder" /usr/local/bin/assetfinder
+        echo "Assetfinder installed successfully."
     fi
 }
 
-# Function to install XSSStrike
-install_xssstrike() {
-    if is_installed xssstrike; then
-        echo "XSSStrike is already installed."
+# Function to install Eyewitness
+install_eyewitness() {
+    if is_installed eyewitness; then
+        echo "Eyewitness is already installed."
     else
-        echo "Installing XSSStrike..."
-        git clone https://github.com/s0md3v/XSStrike.git
-        cd XSStrike
+        echo "Installing Eyewitness..."
+        sudo apt install -y eyewitness
+        echo "Eyewitness installed successfully."
+    fi
+}
+
+# Function to install Katana
+install_katana() {
+    if is_installed katana; then
+        echo "Katana is already installed."
+    else
+        echo "Installing Katana..."
+        go install github.com/projectdiscovery/katana/cmd/katana@latest
+        sudo ln -s "$HOME/go/bin/katana" /usr/local/bin/katana
+        echo "Katana installed successfully."
+    fi
+}
+
+# Function to install Waybackurls
+install_waybackurls() {
+    if is_installed waybackurls; then
+        echo "Waybackurls is already installed."
+    else
+        echo "Installing Waybackurls..."
+        go install github.com/tomnomnom/waybackurls@latest
+        sudo ln -s "$HOME/go/bin/waybackurls" /usr/local/bin/waybackurls
+        echo "Waybackurls installed successfully."
+    fi
+}
+
+# Function to install Gau
+install_gau() {
+    if is_installed gau; then
+        echo "Gau is already installed."
+    else
+        echo "Installing Gau..."
+        go install github.com/lc/gau/v2/cmd/gau@latest
+        sudo ln -s "$HOME/go/bin/gau" /usr/local/bin/gau
+        echo "Gau installed successfully."
+    fi
+}
+
+# Function to install JSFinder
+install_jsfinder() {
+    if is_installed jsfinder; then
+        echo "JSFinder is already installed."
+    else
+        echo "Installing JSFinder..."
+        git clone https://github.com/Threezh1/JSFinder.git
+        cd JSFinder
         pip3 install -r requirements.txt
-        sudo ln -s "$(pwd)/xssstrike.py" /usr/local/bin/xssstrike
+        sudo ln -s "$(pwd)/jsfinder.py" /usr/local/bin/jsfinder
         cd ..
-        echo "XSSStrike installed successfully."
+        echo "JSFinder installed successfully."
     fi
 }
 
 # Execute the installation functions
 install_go
 install_nmap
-install_gobuster
-install_amass
-install_dirsearch
 install_subfinder
 install_httpx
-install_dalfox
-install_feroxbuster
-install_xssstrike
+install_nuclei
+install_assetfinder
+install_eyewitness
+install_katana
+install_waybackurls
+install_gau
+install_jsfinder
 
 echo "All programs installed and configured successfully."
