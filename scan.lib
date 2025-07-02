@@ -1,80 +1,150 @@
 #!/bin/bash
 
-crt_scan() {
-    echo "[+] Starting crt scan on $domain..."
-    curl "https://crt.sh/?q=$domain&output=json" -s -o $directory/crt
-    echo "[+] The results for crt scan are stored in $directory/crt."
-    sleep $((RANDOM % 5 + 1))  # Random delay
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# --- Helper Functions ---
+
+# Function to print informational messages
+info() {
+    echo -e "${GREEN}[+] $1${NC}"
 }
 
-subdomain_scan() {
-    echo "[+] Enumerating subdomains of the target..."
-    echo "[+] Subfinder scan started."
+# Function to print error messages
+error() {
+    echo -e "${RED}[-] $1${NC}"
+}
+
+# Function to print warning messages
+warn() {
+    echo -e "${YELLOW}[!] $1${NC}"
+}
+
+# --- Reconnaissance Functions ---
+
+# 1. Subdomain Enumeration (Active & Passive)
+gather_subdomains() {
+    info "Gathering subdomains for $domain..."
     subfinder -d $domain -all -recursive -silent > $directory/subfinder.txt
-    sleep $((RANDOM % 5 + 1))  # Random delay
-    echo "[+] Amass scan started."
-    amass enum -passive -d $domain -o $directory/amass.txt 2>/dev/null # Reduced threads
-    echo "[+] Combining the result of subfinder and Amass."
-    cat $directory/subfinder.txt $directory/amass.txt | sort | uniq > $directory/subdomain.txt
-    mv $directory/subfinder.txt $directory/amass.txt $directory/Extra
-    echo "[+] The results for subdomain scan are stored in $directory/subdomain.txt."
+    assetfinder --subs-only $domain > $directory/assetfinder.txt
+    cat $directory/subfinder.txt $directory/assetfinder.txt | sort | uniq > $directory/subdomains.txt
+    mv $directory/subfinder.txt $directory/assetfinder.txt $directory/Extra
+    info "Found $(wc -l < $directory/subdomains.txt) unique subdomains."
 }
 
-alive_subdomain_scan() {
-    if [[ -s $directory/subdomain.txt ]]; then
-        echo "[+] Finding alive subdomains using httpx."
-        cat $directory/subdomain.txt | httpx > $directory/httpx.txt 2>/dev/null
-        cat $directory/subdomain.txt | httpx --status-code -title -content-length > $directory/httpx_detailed.txt 2>/dev/null
-        if [[ -s $directory/httpx.txt ]]; then
-            sed 's~http[s]*://~~g' $directory/httpx.txt > $directory/alive_subdomain.txt
-            mv $directory/httpx.txt $directory/subdomain.txt $directory/Extra
-            echo "[+] The results for HTTPX are stored in $directory/alive_subdomain.txt."
-        else
-            echo "[-] HTTPX did not find any alive subdomains or failed to run."
-        fi
+# 2. Check for Live Subdomains
+check_live_subdomains() {
+    info "Checking for live subdomains..."
+    if [[ -s $directory/subdomains.txt ]]; then
+        httpx -l $directory/subdomains.txt -o $directory/live_subdomains.txt > /dev/null 2>&1
+        info "Found $(wc -l < $directory/live_subdomains.txt) live subdomains."
     else
-        echo "[-] subdomain.txt does not exist or is empty. Skipping HTTPX scan."
+        error "No subdomains found to check."
     fi
 }
 
-
-directory_scan() {
-    if [[ -s $directory/alive_subdomain.txt ]]; then
-        echo "[+] Crawling all directories of $domain."
-        echo "[+] Starting katana scan."
-        katana -u $directory/alive_subdomain.txt -H "$header" -d 5 -ps -pss waybackarchive, commoncrawl, alienvault -hf -jc -fx -ef woff, css, png, svg, jpg, woff2, jpeg, gif, svg -rl 50 -silent > $directory/katana.txt 2>/dev/null
-        sleep $((RANDOM % 5 + 1))  # Random delay
-        echo "[+] Starting Waybackurls scan."
-	cat $directory/alive_subdomain.txt | waybackurls -no-subs > $directory/waybackurls.txt
-        if [[ -e "$directory/katana.txt" && -e "$directory/waybackurls.txt" ]]; then
-            echo "[+] Sorting and combining result of katana and dirsearch to $directory/allurls.txt"
-            cat $directory/katana.txt $directory/waybackurls.txt | sort | uniq > $directory/allurls.txt
-            mv $directory/katana.txt $directory/waybackurls.txt $directory/Extra
-        elif [[ -e "$directory/katana.txt" && ! -e "$directory/waybackurls.txt" ]]; then
-            echo "[-] Unable to perform Dirsearch scan."
-            echo "[+] Sorting and combining result of katana to $directory/allurls.txt"
-            cat $directory/katana.txt | sort | uniq > $directory/allurls.txt
-            mv $directory/katana.txt $directory/Extra
-        elif [[ ! -e "$directory/katana.txt" && -e "$directory/waybackurls.txt" ]]; then
-            echo "[-] Unable to perform Katana scan."
-            echo "[+] Sorting and combining result of Dirsearch to $directory/allurls.txt"
-            cat $directory/waybackurls.txt | sort | uniq > $directory/allurls.txt
-            mv $directory/waybackurls.txt $directory/Extra
-        else
-            echo "[-] katana.txt and waybackurls.txt files do not exist."
-        fi
-        echo "[+] Separating all parameters URL from $directory/allurls.txt to $directory/param.txt"
-        cat $directory/allurls.txt | grep = > $directory/param.txt
+# 3. Screenshot Live Subdomains
+screenshot_subdomains() {
+    info "Taking screenshots of live subdomains..."
+    if [[ -s $directory/live_subdomains.txt ]]; then
+        eyewitness -f $directory/live_subdomains.txt -d $directory/screenshots --web > /dev/null 2>&1
+        info "Screenshots saved in $directory/screenshots."
     else
-        echo "[-] alive_subdomain.txt does not exist or is empty. Skipping directory scan."
+        error "No live subdomains to screenshot."
     fi
 }
 
-xss_scan() {
-    echo "[+] Scanning $domain for XSS Vulnerability..."
-    dalfox file $directory/param.txt -H $header --custom-payload /home/kali/xss_payload.txt > $directory/Dalfox.txt
-    echo "[+] Dalfox scan done on $directory/param.txt"
-    echo "[+] Saving the result of dalfox in $directory/xss_report.txt"
-    cat $directory/Dalfox.txt > $directory/xss_report.txt
-    mv $directory/Dalfox.txt $directory/Extra
+# 4. Separate Subdomains by Potential Impact
+categorize_subdomains() {
+    info "Categorizing subdomains by potential impact..."
+    if [[ -s $directory/live_subdomains.txt ]]; then
+        mkdir -p $directory/categorized_subdomains
+        grep -iE "admin|login|auth|dashboard|portal|test|demo" $directory/live_subdomains.txt > $directory/categorized_subdomains/admin_panel.txt
+        grep -iE "api|dev|stage|test|stg" $directory/live_subdomains.txt > $directory/categorized_subdomains/api_endpoints.txt
+        grep -iE "jira|gitlab|jenkins|grafana|vpn" $directory/live_subdomains.txt > $directory/categorized_subdomains/devops.txt
+        info "Subdomains categorized in $directory/categorized_subdomains."
+    else
+        error "No live subdomains to categorize."
+    fi
+}
+
+# 5. Gather URLs from Live Subdomains
+gather_urls() {
+    info "Gathering URLs from live subdomains..."
+    if [[ -s $directory/live_subdomains.txt ]]; then
+        katana -l $directory/live_subdomains.txt -d 5 -ps -pss waybackarchive,commoncrawl,alienvault -hf -jc -fx -ef woff,css,png,svg,jpg,woff2,jpeg,gif,svg -rl 50 -silent > $directory/katana.txt 2>/dev/null
+        cat $directory/live_subdomains.txt | waybackurls -no-subs > $directory/waybackurls.txt
+        for subdomain in $(cat $directory/live_subdomains.txt); do gau $subdomain; done > $directory/gau_urls.txt
+        cat $directory/katana.txt $directory/waybackurls.txt $directory/gau_urls.txt | sort | uniq > $directory/all_urls.txt
+        mv $directory/katana.txt $directory/waybackurls.txt $directory/gau_urls.txt $directory/Extra
+        info "Found $(wc -l < $directory/all_urls.txt) unique URLs."
+    else
+        error "No live subdomains to gather URLs from."
+    fi
+}
+
+# 6. Separate URLs by Extension
+categorize_urls_by_extension() {
+    info "Categorizing URLs by extension..."
+    if [[ -s $directory/all_urls.txt ]]; then
+        mkdir -p $directory/categorized_urls
+        grep -iE "\.js$" $directory/all_urls.txt > $directory/categorized_urls/js_files.txt
+        grep -iE "\.bak$|\.zip$|\.tar\.gz$|\.rar$" $directory/all_urls.txt > $directory/categorized_urls/backup_files.txt
+        grep -iE "\.php$|\.aspx$|\.jsp$" $directory/all_urls.txt > $directory/categorized_urls/dynamic_pages.txt
+        info "URLs categorized by extension in $directory/categorized_urls."
+    else
+        error "No URLs to categorize."
+    fi
+}
+
+# 7. Find Secrets in JS Files
+find_secrets() {
+    info "Scanning JS files for secrets..."
+    if [[ -s $directory/categorized_urls/js_files.txt ]]; then
+        mkdir -p $directory/secrets
+        while read url; do
+            jsfinder -u $url >> $directory/secrets/js_secrets.txt
+        done < $directory/categorized_urls/js_files.txt
+        info "Secret scan results saved in $directory/secrets/js_secrets.txt."
+    else
+        warn "No JS files to scan for secrets."
+    fi
+}
+
+# 8. Separate URLs by Potential Impact
+categorize_urls_by_impact() {
+    info "Categorizing URLs by potential impact..."
+    if [[ -s $directory/all_urls.txt ]]; then
+        mkdir -p $directory/categorized_urls/impact
+        grep -iE "redirect|url|page|return" $directory/all_urls.txt > $directory/categorized_urls/impact/open_redirect.txt
+        grep -iE "id|user|account|number" $directory/all_urls.txt > $directory/categorized_urls/impact/idor.txt
+        grep -iE "debug=true|test=true" $directory/all_urls.txt > $directory/categorized_urls/impact/debug_parameters.txt
+        grep -iE "password|token|key|auth" $directory/all_urls.txt > $directory/categorized_urls/impact/sensitive_parameters.txt
+        info "URLs categorized by impact in $directory/categorized_urls/impact."
+    else
+        error "No URLs to categorize by impact."
+    fi
+}
+
+# 9. Vulnerability Scanning (Optional)
+run_vulnerability_scan() {
+    info "Running vulnerability scans (this may take a while)..."
+    if [[ -s $directory/live_subdomains.txt ]]; then
+        mkdir -p $directory/vulnerability_scans
+        
+        # Nmap scan
+        info "Running Nmap scan..."
+        nmap -sV -p- -iL $directory/live_subdomains.txt -oN $directory/vulnerability_scans/nmap_scan.txt > /dev/null 2>&1
+        
+        # Nuclei scan
+        info "Running Nuclei scan..."
+        nuclei -l $directory/live_subdomains.txt -o $directory/vulnerability_scans/nuclei_scan.txt > /dev/null 2>&1
+        
+        info "Vulnerability scans complete. Results saved in $directory/vulnerability_scans."
+    else
+        error "No live subdomains to scan."
+    fi
 }
