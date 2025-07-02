@@ -6,11 +6,14 @@ This toolkit is a Bash script designed to automate various stages of reconnaissa
 
 ## Features
 
-- **Subdomain Enumeration**: Combines results from Subfinder and Amass.
-- **Alive Subdomain Detection**: Identifies live subdomains using HTTPX.
-- **Directory Crawling**: Gathers directories using Katana and Waybackurls.
-- **XSS Detection**: Scans for Cross-Site Scripting vulnerabilities using Dalfox.
-- **CRT.sh Integration**: Retrieves certificate transparency logs for domains.
+- **Subdomain Enumeration**: Combines results from Subfinder and Assetfinder.
+- **Live Subdomain Detection**: Identifies live subdomains using HTTPX.
+- **Web Screenshotting**: Captures screenshots of live subdomains using Eyewitness.
+- **Subdomain Categorization**: Groups subdomains by potential interest (e.g., admin panels, APIs).
+- **URL Gathering**: Crawls live sites for URLs using Katana, Waybackurls and Gau.
+- **URL Categorization**: Separates URLs by file extension (JS, backups) and potential impact (IDOR, redirects).
+- **Secret Scanning**: Searches JavaScript files for API keys and other secrets using JSFinder.
+- **Vulnerability Scanning (Optional)**: Performs scans with Nmap and Nuclei when the `-v` flag is used.
 
 ---
 
@@ -18,15 +21,20 @@ This toolkit is a Bash script designed to automate various stages of reconnaissa
 
 Ensure the following tools are installed:
 - `subfinder`
-- `amass`
+- `assetfinder`
 - `httpx`
+- `eyewitness`
 - `katana`
 - `waybackurls`
-- `dalfox`
+- `gau`
+- `jsfinder`
+- `nmap`
+- `nuclei`
+- `go`
 - `jq`
 - `curl`
 
-Install missing tools using their respective package managers.
+You can use the `install.sh` script to install all the required tools.
 
 ---
 
@@ -38,49 +46,53 @@ git clone https://github.com/your-username/recon-toolkit.git
 cd recon-toolkit
 ```
 
-2. Set Up Permissions and make the script is an executable:
-```
-chmod +x recon.sh
+### 2. Set Up Permissions
+Make the scripts executable:
+```bash
+chmod +x recon.sh install.sh
 ```
 
-4. Run the Script
-Example Commands:
-Help Menu:
+### 3. Install the required tools
+```bash
+./install.sh
 ```
-./recon.sh -h
-```
-Interactive Mode:
-```
-./recon.sh -i
-```
-This mode allows you to enter domains one by one interactively.
 
-Run a Specific Mode:
-```
-./recon.sh -m subs example.com
-```
-Replace subs with your desired mode:
+### 4. Run the Script
 
-- subs: Subdomain enumeration
-- alive_subs: Alive subdomains detection
-- dir: Directory scanning
-- xss: XSS vulnerability scanning
-- crt: Certificate transparency scan
-
-Run All Modes:
-```
+**Default Scan:**
+Runs the full reconnaissance workflow, from subdomain enumeration to URL analysis.
+```bash
 ./recon.sh example.com
 ```
-Output:
-- All results are saved in a directory named <domain>_recon.
-- A comprehensive report is generated in <domain>_recon/report.
 
+**Scan with Vulnerability Scanning:**
+Adds Nmap and Nuclei scans to the workflow.
+```bash
+./recon.sh -v example.com
+```
 
-Disclaimer:
+**Interactive Mode:**
+Allows you to enter domains one by one.
+```bash
+./recon.sh -i
+```
+To run a vulnerability scan in interactive mode, use the `-v` flag:
+```bash
+./recon.sh -i -v
+```
+
+### Output
+- All results are saved in a directory named `<domain>_recon`.
+- The directory includes categorized subdomains, URLs, screenshots, and scan results.
+
+---
+
+## Disclaimer
 
 This script is intended for ethical hacking and educational purposes only. Use it exclusively on domains you own or have explicit permission to test. Unauthorized use of this script against third-party systems may violate laws and result in legal consequences. The author assumes no responsibility for misuse or damage caused by this tool.
 
+---
 
-Contributing:
+## Contributing
 
 Contributions are welcome! Feel free to submit issues or pull requests to improve this script.
